@@ -6,13 +6,14 @@ FPK initialization uses server.py --init-auth-stdin to create only TRIM_PKGETC/a
 
 All responses are JSON. Errors have {ok:false,error:"中文说明",code:"machine_code"}. GET /api/auth/status and static assets are public. All other data and hardware endpoints require the fan_studio_session cookie. Cookies use HttpOnly; SameSite=Strict, expire after eight hours, and are held only in server memory. Passwords use scrypt with an independent salt.
 
-All POST requests require Content-Type: application/json and an Origin with exactly the request's Host. All authenticated POST requests also require X-CSRF-Token matching the current session's csrf_token. Non-IP hostnames must be localhost, the system hostname, or listed in FAN_ALLOWED_HOSTS (comma separated). There is no wildcard CORS policy. Login and setup are limited to eight attempts per minute per client address.
+All POST requests require Content-Type: application/json and an Origin with exactly the request's Host. All authenticated POST requests also require X-CSRF-Token matching the current session's csrf_token. Non-IP hostnames must be localhost, the system hostname, or listed in FAN_ALLOWED_HOSTS (comma separated). There is no wildcard CORS policy. Login, setup and password changes are limited to eight attempts per minute per client address.
 
 ## Authentication
 
 - GET /api/auth/status → {ok,setup_required,authenticated,demo,csrf_token?}
 - POST /api/setup body {password} → {ok,csrf_token} and a session cookie. It succeeds once, when credentials do not exist.
 - POST /api/login body {password} → {ok,csrf_token} and a session cookie.
+- POST /api/password body {current_password,new_password} → {ok,csrf_token} and a rotated session cookie. Requires the authenticated session and CSRF token, verifies the current password, validates the new password at 10–128 characters, and revokes all older sessions. The current browser receives a fresh session.
 - POST /api/logout → {ok} and an expired session cookie.
 
 ## Data

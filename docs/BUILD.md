@@ -20,8 +20,8 @@ python3 scripts/build_fpk.py --output-dir dist
 产物包括：
 
 ```text
-dist/1-fan-control-studio-1.3.9-x86.fpk
-dist/1-fan-control-studio-1.3.9-x86.fpk.sha256
+dist/1-fan-control-studio-1.4.0-x86.fpk
+dist/1-fan-control-studio-1.4.0-x86.fpk.sha256
 dist/build-report.json
 ```
 

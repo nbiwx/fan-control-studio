@@ -135,7 +135,7 @@ class Hardware:
         did = 'demo-controller'
         for i in range(1, 6):
             self._sim.setdefault(did + ':pwm' + str(i), {'pwm': 112, 'enable': 2})
-        devices = [{'id': did, 'name': 'demo-controller', 'identity': 'simulation/demo-controller'},
+        devices = [{'id': did, 'name': 'Demo Controller', 'identity': 'simulation/controller'},
                    {'id': 'demo-cpu', 'name': 'coretemp', 'identity': 'simulation/cpu'},
                    {'id': 'demo-disk', 'name': 'drivetemp', 'identity': 'simulation/disk'}]
         channels = [{'id': cid, 'device_id': did, 'name': 'Demo Controller · PWM' + cid[-1],
@@ -150,13 +150,13 @@ class Hardware:
         # Real PWM/tachometer associations are never inferred by this reader.
         duty1 = self._sim[did + ':pwm1']['pwm'] / 255
         duty2 = self._sim[did + ':pwm2']['pwm'] / 255
-        fans = [{'id': did + ':fan1', 'device_id': did, 'name': 'FAN1', 'rpm': round(650 + duty1 * 1200)},
-                {'id': did + ':fan2', 'device_id': did, 'name': 'FAN2', 'rpm': round(700 + duty2 * 1700)}]
+        fans = [{'id': did + ':fan1', 'device_id': did, 'name': 'FAN 1', 'rpm': round(650 + duty1 * 1200)},
+                {'id': did + ':fan2', 'device_id': did, 'name': 'FAN 2', 'rpm': round(700 + duty2 * 1700)}]
         sensors = [{'id': 'demo-cpu:temp1', 'device_id': 'demo-cpu', 'name': 'CPU Package', 'kind': 'cpu', 'temperature': 46.0},
                    {'id': 'demo-disk:temp1', 'device_id': 'demo-disk', 'name': 'Demo Disk 1', 'kind': 'disk', 'temperature': 38.0,
                     'block_devices': ['demo-disk-1'], 'source': 'hwmon'}]
         return {'devices': devices, 'fans': fans, 'pwm_channels': channels, 'temperature_sensors': sensors,
-                'disks': [{'id': 'disk:demo-disk-1', 'name': 'demo-disk-1', 'model': 'Demo Disk 1',
+                'disks': [{'id': 'disk:demo-disk-1', 'name': 'Demo Disk 1', 'model': 'Demo Disk 1',
                            'temperature': 38.0, 'source': 'hwmon', 'status': 'available',
                            'detail': '温度传感器'}], 'demo': True}
 

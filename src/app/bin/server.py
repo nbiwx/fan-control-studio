@@ -89,6 +89,24 @@ class Auth:
                 return False
             return hmac.compare_digest(self.digest(password, self.record['salt']), self.record['hash'])
 
+    def change_password(self, current_password, new_password):
+        self.validate_password(new_password)
+        if not isinstance(current_password, str) or len(current_password) > 128:
+            return None
+        if hmac.compare_digest(current_password.encode('utf-8'), new_password.encode('utf-8')):
+            raise ValueError('新密码不能与当前密码相同')
+        with self.lock:
+            if self.record is None or not hmac.compare_digest(
+                    self.digest(current_password, self.record['salt']), self.record['hash']):
+                return None
+            salt = secrets.token_hex(16)
+            record = {'salt': salt, 'hash': self.digest(new_password, salt)}
+            atomic_json(self.path, record)
+            self.record = record
+            # A password change ends every old login. Issue a fresh session to this browser.
+            self.sessions.clear()
+            return self.create()
+
     def create(self):
         token, csrf = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
         with self.lock:
@@ -313,6 +331,18 @@ class Handler(BaseHTTPRequestHandler):
                 return self.error(401, '请先登录', 'unauthorized')
             if not hmac.compare_digest(self.headers.get('X-CSRF-Token', ''), session['csrf_token']):
                 return self.error(403, '安全令牌不正确，请刷新页面', 'csrf_failed')
+            if path == '/api/password':
+                if not auth.rate_limit(self.client_address[0]):
+                    return self.error(429, '尝试次数过多，请一分钟后重试', 'rate_limited')
+                body = self.json_body()
+                if set(body) != {'current_password', 'new_password'}:
+                    raise ValueError('请求只能包含 current_password 和 new_password')
+                session_tokens = auth.change_password(body['current_password'], body['new_password'])
+                if session_tokens is None:
+                    return self.error(401, '当前密码不正确', 'invalid_credentials')
+                token, csrf = session_tokens
+                cookie = COOKIE + '=' + token + '; Path=/; HttpOnly; SameSite=Strict; Max-Age=' + str(SESSION_AGE)
+                return self.response(200, {'ok': True, 'csrf_token': csrf}, cookie)
             if path == '/api/logout':
                 auth.remove(token)
                 return self.response(200, {'ok': True}, COOKIE + '=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0')
