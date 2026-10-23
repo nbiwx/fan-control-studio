@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#e7f1ed">
+  <meta name="description" content="风栖：本地 NAS 风扇、温度与 PWM 管理。">
+  <title>风栖</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/groups.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#workspace">跳到主内容</a>
+  <div id="auth-view" class="auth-view" hidden>
+    <section class="auth-intro" aria-labelledby="auth-brand"><div class="brand-mark" data-icon="fan"></div><h1 id="auth-brand">风栖</h1><p class="auth-english">风扇管理</p><p class="auth-description">看见温度，<br>让每一次转动恰到好处。</p><div class="auth-note"><span data-icon="shield"></span><p>本地运行 · 数据留在 NAS<br>重启恢复设置 · 异常转为监测。</p></div></section>
+    <main class="auth-panel"><div class="auth-form-wrap"><h2 id="auth-title">连接你的设备</h2><p id="auth-description" class="muted">输入访问密码，进入风扇管理台。</p><div id="auth-demo" class="notice info" hidden>演示环境：所有读数和控制均为模拟，不会操作真实硬件。</div><form id="auth-form"><label for="auth-password" id="password-label">访问密码</label><div class="password-field"><input id="auth-password" name="password" type="password" autocomplete="current-password" required><button class="icon-button" type="button" id="toggle-password" aria-label="显示密码" data-icon="eye"></button></div><div id="confirm-wrap" hidden><label for="auth-confirm">再次输入密码</label><input id="auth-confirm" name="confirm" type="password" autocomplete="new-password"></div><p class="field-hint" id="password-hint">密码仅用于访问这台 NAS 上的风栖。</p><p id="auth-error" class="field-error" role="alert"></p><button type="submit" class="button primary auth-submit" id="auth-submit">登录<span data-icon="arrow"></span></button></form><p class="auth-footer">风栖 <span>·</span> 原生 fnOS 应用</p></div></main>
+  </div>
+  <div id="application" class="application" hidden>
+    <aside class="sidebar" id="sidebar"><a class="brand" href="#overview" aria-label="风栖概览"><span class="brand-mark" data-icon="fan"></span><span><strong>风栖</strong><small>风扇管理</small><small class="brand-version" id="app-version">v—</small></span></a><nav aria-label="主导航"><a href="#overview" data-page="overview" class="nav-link active"><span data-icon="overview"></span>概览</a><a href="#control" data-page="control" class="nav-link"><span data-icon="fan"></span>风扇与温控</a><a href="#hardware" data-page="hardware" class="nav-link"><span data-icon="chip"></span>设备与传感器</a><a href="#events" data-page="events" class="nav-link"><span data-icon="list"></span>事件记录<span class="nav-count" id="event-count" hidden>0</span></a><a href="#settings" data-page="settings" class="nav-link"><span data-icon="settings"></span>设置</a></nav><div class="sidebar-bottom"><div class="local-status"><span class="status-dot"></span><div>本地管理服务<small id="sidebar-mode">等待连接</small></div></div><button class="quiet-button logout" id="logout"><span data-icon="logout"></span>退出登录</button></div></aside>
+    <div class="workspace-shell"><header class="topbar"><div class="topbar-left"><button class="icon-button mobile-menu" id="menu-toggle" aria-label="展开导航" aria-expanded="false" aria-controls="sidebar" data-icon="menu"></button><span id="breadcrumb">设备概览</span><span class="topbar-separator"></span><span id="demo-label" class="demo-label" hidden>演示环境</span><span id="host-label" class="host-label">本地 NAS</span></div><div class="topbar-actions"><span class="connection" id="connection"><span class="status-dot"></span><span id="connection-text">正在连接</span></span><button class="icon-button" id="refresh" aria-label="立即刷新数据" title="立即刷新" data-icon="refresh"></button></div></header>
+    <main id="workspace" tabindex="-1"><div id="connection-error" class="notice danger" role="alert" hidden><span data-icon="alert"></span><div><strong>暂时无法连接本地服务</strong><p id="connection-error-message">正在重试。下方为最后一次成功获取的数据。</p></div><button class="button small" id="retry">重新连接</button></div><div id="demo-banner" class="notice info demo-banner" hidden><span data-icon="info"></span><span>你正在查看演示环境。这里的读数与控制均为模拟，未连接真实 NAS 硬件。</span></div><div id="alarm-region" aria-live="polite"></div>
+      <section class="page" id="page-overview" aria-labelledby="overview-title"><div class="page-heading"><div><h1 id="overview-title">设备概览</h1><p>温度、转速，以及此刻的运行状态。</p></div><span class="last-updated" id="last-updated">等待首次读取</span></div><section class="panel overview-status" aria-labelledby="overview-status-title">
+          <div class="section-heading"><div><h2 id="overview-status-title">运行状态</h2><p>查看当前风扇接管状态与有效温度。CPU、硬盘分别忽略；硬盘也可逐盘设置。</p></div><span class="pill neutral">实时监测</span></div>
+          <div class="overview-status-grid">
+            <div class="summary-operation"><span class="mode-symbol" data-icon="shield"></span><div><span class="reading-label">风扇控制 <span class="pill neutral" id="source-pill">全局温控：读取中</span></span><strong id="mode-summary">读取中</strong><p id="mode-description">正在检查 FAN 分组</p></div></div>
+            <div class="overview-reading"><div class="reading-label"><span data-icon="cpu"></span>CPU 温度</div><button class="overview-temperature-button" data-overview-source-edit="cpu" type="button" aria-haspopup="dialog" aria-controls="overview-source-dialog"><span id="cpu-value">—</span><small>°C</small></button><span class="reading-detail" id="cpu-detail">正在读取传感器</span></div>
+            <div class="overview-reading"><div class="reading-label"><span data-icon="disk"></span>最高硬盘温度</div><button class="overview-temperature-button" data-overview-source-edit="disk" type="button" aria-haspopup="dialog" aria-controls="overview-source-dialog"><span id="disk-value">—</span><small>°C</small></button><span class="reading-detail" id="disk-detail">正在读取传感器</span></div>
+          </div>
+          <p class="overview-ignore-note muted" id="overview-source-ignored">点击 CPU 或硬盘温度管理忽略来源。</p>
+        </section>
+        <section class="panel history-panel overview-section" aria-labelledby="history-title"><div class="section-heading"><div><h2 id="history-title">温度走势</h2><p id="history-caption">随着服务运行，持续记录温度变化。</p></div><div class="segmented time-window" role="group" aria-label="历史时间范围"><button class="selected" data-window="5" aria-pressed="true">5 分钟</button><button data-window="30" aria-pressed="false">30 分钟</button></div></div><div class="history-series-toolbar"><div id="history-series-legend" class="history-full-legend" aria-label="温度曲线完整图例"></div><div class="history-chart-actions"><button class="button small" type="button" id="history-series-open" aria-haspopup="dialog" aria-controls="history-series-dialog"><span data-icon="settings"></span>曲线显示</button><span class="chart-unit">°C</span></div></div><div class="history-chart-frame" id="history-chart-frame"><div class="history-chart chart-surface" id="history-chart" role="img" aria-label="CPU 与硬盘温度走势"></div><div class="history-hover-overlay" id="history-hover-overlay" aria-hidden="true"></div><div class="history-tooltip" id="history-tooltip" role="tooltip" hidden></div></div><div class="chart-bottom"><span class="status-dot"></span><span id="history-footnote">数据仅记录于本次服务运行期间</span></div></section>
+        <section class="panel channel-overview overview-section"><div class="section-heading"><div><h2>实体风扇（FAN）</h2><p>按 RPM 输入建立默认 FAN；逐路测试 PWM 后关联控制。</p></div><a class="text-link" href="#control">管理 FAN 分组<span data-icon="arrow"></span></a></div><div id="overview-channels" class="channel-table"><div class="skeleton"></div><div class="skeleton"></div></div></section>
+        <section class="panel disk-overview overview-section" aria-labelledby="overview-disk-title"><div class="section-heading"><div><h2 id="overview-disk-title">硬盘温度</h2><p>查看各块硬盘的当前有效温度；点击“排除设置”可单独忽略该盘的传感器。</p></div><a class="text-link" href="#hardware">查看传感器<span data-icon="arrow"></span></a></div><div id="overview-disks" class="disk-list"><div class="skeleton"></div></div></section>
+        <footer class="page-footer"><span>风栖</span><span>先监测，再控制。每一个改变都有记录。</span></footer></section>
+      <section class="page" id="page-control" aria-labelledby="control-title" hidden>
+        <div class="page-heading"><div><h1 id="control-title">风扇与温控</h1><p>先测试 PWM、确认 FAN 归属，再选择温控、全速或手动。</p></div><button class="button" id="release-all"><span data-icon="release"></span>释放全部接管</button></div>
+        <div id="pending-recovery-notice" class="notice warning" role="status" hidden></div>
+        <nav class="control-jumps" aria-label="控制页面板块"><a href="#control/global-curve">全局温控曲线</a><a href="#control/fans">FAN 风扇</a><a href="#control/pwm">PWM 接口与测试</a></nav>
+        <section id="global-curve" class="control-section" aria-labelledby="global-curve-title">
+          <div class="section-heading control-section-heading"><div><h2 id="global-curve-title">全局温控曲线</h2><p>FAN 的温控模式默认跟随此方案；推荐值适合作为起点，可自定义后再保存。</p></div><div class="curve-global-actions"><button class="button" id="restore-default-curve">恢复推荐曲线</button><button class="button primary" id="save-curve"><span data-icon="check"></span>保存全局曲线</button></div></div>
+          <div class="curve-layout"><section class="panel curve-workbench"><div class="section-heading"><div><h3>温度与目标 PWM 占空比</h3><p>拖动曲线或编辑节点；末端温度与占空比均可自定义。</p></div><span class="pill neutral" id="curve-dirty" aria-live="polite" aria-atomic="true">已保存</span></div><div class="curve-chart chart-surface" id="curve-chart" aria-label="可编辑的全局温控曲线"></div><div class="curve-chart-note"><span>温度 0–100°C</span><span>最低 35% · 曲线末端不固定</span></div><div class="curve-points-heading"><h3>曲线节点</h3><button class="button small" id="add-point"><span data-icon="plus"></span>添加节点</button></div><div id="curve-points" class="curve-points"></div><p id="curve-error" class="field-error" role="alert"></p></section>
+          <aside class="curve-sidebar"><section class="panel"><h3>温度来源</h3><p class="muted">跟随全局的 FAN 共用此温度来源。</p><fieldset class="source-options"><legend class="sr-only">全局温度来源</legend><label><input type="radio" name="curve-source" value="max"><span><strong>CPU 与磁盘最高值</strong><small>兼顾处理器和存储设备</small></span></label><label><input type="radio" name="curve-source" value="cpu"><span><strong>CPU 温度</strong><small>最高 CPU 传感器读数</small></span></label><label><input type="radio" name="curve-source" value="disk"><span><strong>最高磁盘温度</strong><small>最高磁盘传感器读数</small></span></label></fieldset><div class="sensor-exclusions"><h4>排除温度节点</h4><p>勾选＝排除，CPU 与硬盘分别生效。已排除节点不参与概览最高值、温度走势、全局曲线与健康判断；设备页仍显示原始读数，高温提醒仍保留。所选来源没有剩余可读温度时按 50% 兜底。</p><div id="global-sensor-exclusions"></div></div></section></aside></div>
+          <div class="protection-note"><span data-icon="shield"></span><h3>重启恢复设置，异常转为监测</h3><p>重启后恢复已保存的 FAN 模式与手动占空比；恢复失败的分组转为监测，并保留待恢复记录。</p><p>高温只提醒。已接管输出在传感器异常时按 50% 兜底；全速由主动选择或曲线设置触发。</p></div>
+        </section>
+        <section id="fans" class="control-section" aria-labelledby="fans-title"><div class="section-heading control-section-heading"><div><h2 id="fans-title">FAN 风扇</h2><p id="fan-scan-summary">按检测到的 RPM 输入创建默认 FAN，允许重命名或手动添加。</p></div><button class="button" id="add-fan-group"><span data-icon="plus"></span>添加 FAN</button></div><div id="fan-group-controls" class="control-channel-list"><div class="skeleton tall"></div></div></section>
+        <section id="pwm" class="control-section" aria-labelledby="pwm-title"><div class="section-heading control-section-heading"><div><h2 id="pwm-title">PWM 接口</h2><p>测试单路 PWM 全速 10 秒，观察哪把风扇变化，再添加到对应 FAN。PWM 编号不代表接线归属。</p></div><span class="pill neutral" id="pwm-count">读取中</span></div><p class="pwm-ignore-guide"><strong>忽略接口：</strong>勾选后停止读取、测试、控制和健康检查；待恢复记录继续保留。未勾选的接口参与监测，操作条件显示在各接口下方。</p><div id="pwm-test-feedback" aria-live="polite"></div><section class="panel pwm-panel"><div id="pwm-interfaces"><div class="skeleton"></div></div></section><div id="legacy-mappings"></div></section>
+      </section>
+      <section class="page" id="page-hardware" aria-labelledby="hardware-title" hidden><div class="page-heading"><div><h1 id="hardware-title">设备与传感器</h1><p>Linux hwmon 分开报告逻辑 PWM 输出与 RPM 输入；实体插座归属由你手动验证。</p></div><button class="button" id="rescan"><span data-icon="refresh"></span>重新扫描</button></div><div id="hardware-content"><div class="skeleton tall"></div></div></section>
+      <section class="page" id="page-events" aria-labelledby="events-title" hidden><div class="page-heading"><div><h1 id="events-title">事件记录</h1><p>每次控制、恢复与异常都有迹可循。</p></div><button class="button" id="export-logs"><span data-icon="download"></span>导出记录</button></div><section class="panel event-panel"><div class="event-toolbar"><div class="segmented" role="group" aria-label="筛选事件级别"><button data-level="all" class="selected">全部</button><button data-level="warning">警告</button><button data-level="error">错误</button><button data-level="info">操作</button></div><span class="muted small-text">本次服务运行记录</span></div><div id="events-list" class="event-list"></div></section></section>
+      <section class="page" id="page-settings" aria-labelledby="settings-title" hidden><div class="page-heading"><div><h1 id="settings-title">设置</h1><p>本地运行，清晰掌控。</p></div></div><section class="panel settings-panel"><div class="settings-section"><div><h2>数据刷新</h2><p>控制循环与实时读数使用相同的采样间隔。</p></div><form id="settings-form" class="inline-form"><label class="sr-only" for="poll-interval">采样间隔</label><select id="poll-interval"><option value="1">每 1 秒</option><option value="3">每 3 秒</option><option value="5">每 5 秒</option><option value="10">每 10 秒</option><option value="30">每 30 秒</option></select><button class="button" type="submit">保存</button></form></div><div class="settings-section"><div><h2>访问保护</h2><p>管理界面需要登录；所有控制请求校验会话和安全令牌。</p></div><span class="pill success"><span data-icon="shield"></span>已启用</span></div><div class="settings-section"><div><h2>诊断数据</h2><p>导出当前设备、配置与事件记录，便于排查驱动或接线问题。</p></div><button class="button" id="export-diagnostics"><span data-icon="download"></span>导出诊断</button></div><div class="settings-section"><div><h2>应用行为</h2><ul class="behavior-list"><li>重启后恢复 FAN 已保存的温控、全速或手动设置；恢复失败的分组转为监测并显示原因。</li><li>默认 FAN 以检测到的 RPM 输入建立；名称和数量可调整，PWM 归属由你逐路测试确认。</li><li>PWM 测试由后台计时，10 秒后恢复测试前状态。恢复失败时保留记录，仅暂停相关 PWM。</li><li>全局提醒可应用或忽略。已接管输出在温度或已确认 RPM 异常时按 50% 兜底。</li></ul></div></div><div class="about-row"><span class="brand-mark" data-icon="fan"></span><div><strong>风栖</strong><p>原生 fnOS 风扇与温度管理</p></div><span class="about-version" id="about-version">v—</span></div></section></section>
+    </main></div>
+  </div>
+  <div class="initial-loading" id="initial-loading"><div class="brand-mark" data-icon="fan"></div><p>正在连接风栖…</p><p id="initial-error" class="field-error" role="alert"></p><button id="initial-retry" class="button" hidden>重新连接</button></div>
+  <dialog id="history-series-dialog" class="suggestion-dialog history-series-dialog" aria-labelledby="history-series-title" aria-describedby="history-series-description">
+    <form method="dialog">
+      <div class="suggestion-dialog-heading"><span class="mode-symbol" data-icon="curve"></span><div><h2 id="history-series-title">温度曲线显示</h2><p>按需开启平均线和单个传感器走势。</p></div></div>
+      <p id="history-series-description" class="suggestion-description">已忽略的传感器不会列出、绘图或参与 CPU / 硬盘各自的平均值。平均值按每个采样时刻有读数的未忽略节点计算；关闭单条曲线只隐藏线条，不改变平均范围。</p>
+      <section class="history-dialog-section"><h3>平均曲线</h3><div id="history-mean-settings" class="history-dialog-list"></div></section>
+      <section class="history-dialog-section"><div class="history-dialog-heading"><h3>单传感器曲线</h3><div class="history-dialog-bulk"><button class="button small" type="button" data-history-sensors-all="on">全开</button><button class="button small" type="button" data-history-sensors-all="off">全关</button></div></div><div id="history-sensor-settings" class="history-dialog-groups"></div></section>
+      <div class="suggestion-dialog-actions"><button class="button primary" type="submit">完成</button></div>
+    </form>
+  </dialog>
+  <dialog id="overview-source-dialog" class="suggestion-dialog source-exclusion-dialog" aria-labelledby="overview-source-title" aria-describedby="overview-source-description">
+    <form id="overview-source-form">
+      <div class="suggestion-dialog-heading"><span class="mode-symbol" data-icon="chip"></span><div><h2 id="overview-source-title">忽略温度来源</h2><p id="overview-source-dialog-heading">CPU 或硬盘温度节点</p></div></div>
+      <p id="overview-source-description" class="suggestion-description">勾选表示排除。CPU 与硬盘分别统计；硬盘列表还可逐盘设置。已排除节点不参与对应类别的概览最高温、温度走势、全局温控或传感器健康判断。设备详情仍保留原始读数，高温提醒也继续按原始读数触发。</p>
+      <div id="overview-source-sensor-exclusions" class="sensor-exclusions"><h4>温度来源</h4><div id="overview-source-sensor-list"></div></div>
+      <p id="overview-source-conflict" class="suggestion-unavailable" hidden>全局温控曲线有未保存修改。请先保存或放弃曲线修改，再编辑忽略来源。</p>
+      <p id="overview-source-error" class="field-error" role="alert"></p>
+      <div class="suggestion-dialog-actions"><button class="button" type="button" id="overview-source-cancel">取消</button><button class="button primary" type="submit" id="overview-source-save">保存设置</button></div>
+    </form>
+  </dialog>
+  <dialog id="suggestion-dialog" class="suggestion-dialog" aria-labelledby="suggestion-title" aria-describedby="suggestion-description">
+    <form id="suggestion-form">
+      <div class="suggestion-dialog-heading"><span class="mode-symbol" data-icon="fan"></span><div><h2 id="suggestion-title">应用建议方案</h2><p>由你确认，再开始控制。</p></div></div>
+      <p id="suggestion-description" class="suggestion-description"></p>
+      <div id="suggestion-controls">
+        <label for="suggestion-channel">选择一个已配置 FAN 组</label>
+        <select id="suggestion-channel"><option value="">请选择 FAN 组</option></select>
+        <p id="suggestion-channel-note" class="field-hint"></p>
+        <dl class="suggestion-plan"><div><dt>温度来源</dt><dd id="suggestion-source"></dd></div><div><dt>已保存曲线</dt><dd id="suggestion-curve"></dd></div></dl>
+        <p class="suggestion-protection">确认后只为所选 FAN 组中已手动验证的 PWM 输出启用自动调速。高温阈值只提醒；温度或 RPM 数据异常时按 50% 兜底。你可在“风扇控制”释放整组并恢复各 PWM 原始状态。</p>
+      </div>
+      <p id="suggestion-inspect" class="suggestion-inspect" hidden></p>
+      <p id="suggestion-unavailable" class="suggestion-unavailable" role="status" hidden></p>
+      <p id="suggestion-error" class="field-error" role="alert"></p>
+      <div class="suggestion-dialog-actions"><button class="button" type="button" id="suggestion-cancel">取消</button><button class="button primary" type="submit" id="suggestion-submit">应用并启用</button></div>
+    </form>
+  </dialog>
+  <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+</body>
+</html>

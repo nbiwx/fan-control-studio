@@ -1,0 +1,41 @@
+#!/bin/bash
+set -euo pipefail
+umask 077
+
+fail() {
+    if [ -n "${TRIM_TEMP_LOGFILE:-}" ]; then
+        printf '%s\n' "$1" > "$TRIM_TEMP_LOGFILE"
+    fi
+    printf '%s\n' "$1" >&2
+    exit 1
+}
+
+if [ -z "${TRIM_PKGETC:-}" ] || [ -z "${TRIM_PKGVAR:-}" ]; then
+    fail '缺少飞牛应用数据目录，无法完成安装。'
+fi
+mkdir -p "$TRIM_PKGETC" "$TRIM_PKGVAR"
+chmod 700 "$TRIM_PKGETC" "$TRIM_PKGVAR"
+
+# Reinstalling or upgrading must not replace an existing administrator password.
+if [ -f "$TRIM_PKGETC/auth.json" ]; then
+    exit 0
+fi
+
+password="${wizard_admin_password:-}"
+confirmation="${wizard_admin_password_confirm:-}"
+[ "${#password}" -ge 10 ] && [ "${#password}" -le 128 ] || fail '访问密码需为 10 至 128 个字符。'
+[ "$password" = "$confirmation" ] || fail '两次输入的访问密码不一致，请重新安装并确认密码。'
+python=''
+for candidate in /var/apps/python312/target/bin/python3.12 /var/apps/python312/target/bin/python3; do
+    if [ -x "$candidate" ]; then python="$candidate"; break; fi
+done
+[ -n "$python" ] || fail '请先在应用中心安装并启用 Python 3.12。'
+[ -f "${TRIM_APPDEST:-}/bin/server.py" ] || fail '应用服务文件缺失，无法初始化访问密码。'
+# The password is passed only over stdin, never as an argument or a log entry.
+if ! printf '%s' "$password" | env -u wizard_admin_password -u wizard_admin_password_confirm \
+    "$python" "$TRIM_APPDEST/bin/server.py" --init-auth-stdin; then
+    fail '无法初始化访问密码，请检查 Python 3.12 依赖并重新安装。'
+fi
+unset password confirmation wizard_admin_password wizard_admin_password_confirm
+# The server initializes a fresh configuration in monitor-only mode.
+exit 0

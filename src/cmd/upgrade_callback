@@ -1,0 +1,4 @@
+#!/bin/bash
+set -eu
+# Existing configuration and the hardware recovery journal are retained.
+exit 0

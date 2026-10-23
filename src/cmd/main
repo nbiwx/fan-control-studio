@@ -1,0 +1,97 @@
+#!/bin/bash
+# fnOS calls this script with start, stop or status. Only the service owns PWM.
+set -u
+umask 077
+
+APP_DEST="${TRIM_APPDEST:-}"
+PKG_VAR="${TRIM_PKGVAR:-}"
+PKG_ETC="${TRIM_PKGETC:-}"
+SERVICE_PORT="${TRIM_SERVICE_PORT:-18791}"
+
+fail() {
+    local message="$1"
+    if [ -n "${TRIM_TEMP_LOGFILE:-}" ]; then
+        printf '%s\n' "$message" > "$TRIM_TEMP_LOGFILE"
+    fi
+    printf '%s\n' "$message" >&2
+    exit 1
+}
+
+[ -n "$APP_DEST" ] && [ -n "$PKG_VAR" ] && [ -n "$PKG_ETC" ] || fail '缺少飞牛应用路径环境，请从应用中心启动风栖。'
+SERVER="$APP_DEST/bin/server.py"
+PID_FILE="$PKG_VAR/server.pid"
+LOG_FILE="$PKG_VAR/server.log"
+
+read_pid() {
+    [ -r "$PID_FILE" ] || return 1
+    IFS= read -r pid < "$PID_FILE" || [ -n "${pid:-}" ] || return 1
+    [[ "$pid" =~ ^[1-9][0-9]*$ ]] || return 1
+}
+
+is_running() {
+    read_pid || return 1
+    kill -0 "$pid" 2>/dev/null || return 1
+    # A stale PID file must never stop an unrelated process.
+    [ -r "/proc/$pid/cmdline" ] || return 1
+    local argument
+    while IFS= read -r -d '' argument; do
+        [ "$argument" = "$SERVER" ] && return 0
+    done < "/proc/$pid/cmdline"
+    return 1
+}
+
+start_service() {
+    if is_running; then return 0; fi
+    [ -f "$SERVER" ] || fail '应用服务文件缺失，请重新安装风栖。'
+    [ -s "$PKG_ETC/auth.json" ] || fail '访问密码尚未初始化，请重新安装风栖并完成密码设置。'
+    case "$SERVICE_PORT" in
+        ''|*[!0-9]*) fail '服务端口无效。' ;;
+    esac
+    [ "$SERVICE_PORT" -ge 1024 ] && [ "$SERVICE_PORT" -le 65535 ] || fail '服务端口应为 1024–65535。'
+    local python=''
+    for candidate in /var/apps/python312/target/bin/python3.12 /var/apps/python312/target/bin/python3; do
+        if [ -x "$candidate" ]; then python="$candidate"; break; fi
+    done
+    [ -n "$python" ] || fail '请先在应用中心安装并启用 Python 3.12。'
+    mkdir -p "$PKG_VAR" "$PKG_ETC" || fail '无法创建应用配置目录。'
+    chmod 700 "$PKG_VAR" "$PKG_ETC" || fail '无法设置应用目录权限。'
+    export PATH="/var/apps/python312/target/bin:$PATH"
+    export PYTHONDONTWRITEBYTECODE=1
+    # Optional exact-board/exact-kernel loader only exposes hwmon; no PWM writes.
+    if [ -f "$APP_DEST/drivers/load-compatible.sh" ]; then
+        /bin/bash "$APP_DEST/drivers/load-compatible.sh" >> "$PKG_VAR/driver.log" 2>&1 || true
+    fi
+    cd "$APP_DEST" || fail '无法进入应用目录。'
+    nohup "$python" -u "$SERVER" --host 0.0.0.0 --port "$SERVICE_PORT" >> "$LOG_FILE" 2>&1 < /dev/null &
+    local started_pid=$!
+    printf '%s\n' "$started_pid" > "$PID_FILE"
+    # Catch an immediate startup error without touching any fan channel here.
+    sleep 2
+    is_running || fail '风栖启动失败，请查看应用运行日志。'
+}
+
+stop_service() {
+    if ! is_running; then
+        rm -f "$PID_FILE"
+        return 0
+    fi
+    local service_pid="$pid"
+    kill -TERM "$service_pid" || fail '无法向风栖服务发送停止请求。'
+    # SIGTERM lets the backend restore only outputs it actually took over.
+    local elapsed=0
+    while is_running && [ "$elapsed" -lt 30 ]; do
+        sleep 1
+        elapsed=$((elapsed + 1))
+    done
+    if is_running; then
+        fail '风栖正在恢复风扇状态，服务尚未退出。请检查运行日志后重试停止。'
+    fi
+    rm -f "$PID_FILE"
+}
+
+case "${1:-}" in
+    start) start_service ;;
+    stop) stop_service ;;
+    status) if is_running; then exit 0; else exit 3; fi ;;
+    *) fail '未知服务操作。' ;;
+esac

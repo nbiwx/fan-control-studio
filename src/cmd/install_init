@@ -1,0 +1,4 @@
+#!/bin/bash
+set -eu
+# Installation does not probe, load or write hardware drivers.
+exit 0

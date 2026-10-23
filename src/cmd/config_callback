@@ -1,0 +1,4 @@
+#!/bin/bash
+set -eu
+# Curves and channel settings are edited in the authenticated application UI.
+exit 0

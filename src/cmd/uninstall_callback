@@ -1,0 +1,4 @@
+#!/bin/bash
+set -eu
+# fnOS owns application directory removal; do not sweep system paths.
+exit 0

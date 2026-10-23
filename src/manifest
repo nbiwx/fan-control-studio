@@ -1,0 +1,16 @@
+appname               = 1-fan-control-studio
+version               = 1.3.9
+display_name          = 风栖
+desc                  = FAN 温控与 PWM 测试控制台，支持逐盘温度排除、独立传感器走势与 PWM 忽略。
+platform              = x86
+source                = thirdparty
+maintainer            = 风栖项目组
+distributor           = 风栖项目组
+desktop_uidir         = ui
+desktop_applaunchname = 1-fan-control-studio.Application
+service_port          = 18791
+checkport             = true
+ctl_stop              = true
+install_dep_apps      = python312
+disable_authorization_path = true
+changelog             = 温度走势悬停详情完整显示，节点图例缩小且单节点曲线使用虚线。
